@@ -1,0 +1,19 @@
+{
+  "version": "0.4.0",
+  "url": "https://github.com/Logic647/MemorySQL/releases/download/v0.4.0/MemorySQL-Setup-0.4.0.exe",
+  "hash": "774419546c21876512daa47790263cdf182c266cfd701926912cca290fa6dc32",
+  "installer": {
+    "script": "Start-Process \"$dir\$fname\" /S | Wait-Process"
+  },
+  "shortcuts": [
+    ["MemorySQL.exe", "MemorySQL"]
+  ],
+  "checkver": "github",
+  "autoupdate": {
+    "url": "https://github.com/Logic647/MemorySQL/releases/download/v{$version}/MemorySQL-Setup-{$version}.exe",
+    "hash": {
+      "url": "https://github.com/Logic647/MemorySQL/releases/download/v{$version}/MemorySQL-Setup-{$version}.exe.blockmap",
+      "regex": "\"sha256\":\s*\"([a-fA-F0-9]{64})\""
+    }
+  }
+}
