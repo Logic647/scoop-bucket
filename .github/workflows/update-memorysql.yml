@@ -1,0 +1,97 @@
+name: Bump MemorySQL
+
+# 每日检查 MemorySQL 最新 release；版本变了就重算 sha256 并更新清单。
+# 也支持手动触发（force=true 会跳过版本比较，用于验证整条链路）。
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 即使版本相同也重新下载/校验/计算 hash
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bump-memorysql
+  cancel-in-progress: true
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 解析最新版本
+        id: ver
+        run: |
+          set -euo pipefail
+          final=$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/Logic647/MemorySQL/releases/latest)
+          tag=${final##*/}
+          version=${tag#v}
+          [ -n "$version" ] || { echo "::error::无法解析最新 tag($final)"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "url=https://github.com/Logic647/MemorySQL/releases/download/v${version}/MemorySQL-Setup-${version}.exe" >> "$GITHUB_OUTPUT"
+          echo "最新版本 $version"
+
+      - name: 是否需要更新
+        id: cmp
+        run: |
+          set -euo pipefail
+          cur=$(jq -r .version memorysql.json)
+          if [ "$cur" = "${{ steps.ver.outputs.version }}" ] && [ "${{ inputs.force }}" != "true" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "清单已是 $cur，跳过"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "清单 $cur → ${{ steps.ver.outputs.version }}"
+          fi
+
+      - name: 下载安装包
+        if: steps.cmp.outputs.skip == 'false'
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 --retry-delay 2 -o setup.exe "${{ steps.ver.outputs.url }}"
+          ls -l setup.exe
+
+      # 清单用 #/dl.7z 让 scoop 直接解包，前提是载荷在根（MemorySQL.exe 在顶层）。
+      # 一旦 electron-builder 布局变成 $PLUGINSDIR/app-64.7z 那种，这里先红，别发坏清单。
+      - name: 校验安装包结构
+        if: steps.cmp.outputs.skip == 'false'
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq p7zip-full
+          7z l -ba setup.exe | awk '{print $NF}' | grep -qx 'MemorySQL.exe' \
+            || { echo "::error::安装包里没有根级 MemorySQL.exe，布局可能变了，#/dl.7z 不再适用"; exit 1; }
+          echo "结构校验通过（根级 MemorySQL.exe）"
+
+      - name: 更新清单
+        if: steps.cmp.outputs.skip == 'false'
+        run: |
+          set -euo pipefail
+          sha=$(sha256sum setup.exe | cut -d' ' -f1)
+          jq --indent 4 \
+             --arg v "${{ steps.ver.outputs.version }}" \
+             --arg u "${{ steps.ver.outputs.url }}#/dl.7z" \
+             --arg h "$sha" \
+             '.version=$v | .url=$u | .hash=$h' memorysql.json > new.json
+          mv new.json memorysql.json
+          cat memorysql.json
+
+      - name: 提交
+        if: steps.cmp.outputs.skip == 'false'
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add memorysql.json
+          if git diff --cached --quiet; then
+            echo "清单内容无变化，跳过提交"
+            exit 0
+          fi
+          git commit -m "memorysql ${{ steps.ver.outputs.version }}"
+          git push
