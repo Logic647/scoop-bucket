@@ -1,10 +1,10 @@
 {
-    "version": "0.7.4",
+    "version": "0.7.5",
     "description": "Local-first knowledge base for personal developers: agent sessions, memory, personas — connect and continue.",
     "homepage": "https://github.com/Logic647/MemorySQL",
     "license": "MIT",
-    "url": "https://github.com/Logic647/MemorySQL/releases/download/v0.7.4/MemorySQL-Setup-0.7.4.exe#/dl.7z",
-    "hash": "2ddb382c0b6c679ca89116326e073cb73403d33518b6df903bc86fa700b2cf98",
+    "url": "https://github.com/Logic647/MemorySQL/releases/download/v0.7.5/MemorySQL-Setup-0.7.5.exe#/dl.7z",
+    "hash": "87ae828d6442bfa95f9521f2200dcb889e5fc75444a731764f71e8a030b4da55",
     "shortcuts": [
         [
             "MemorySQL.exe",
